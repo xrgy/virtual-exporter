@@ -9,6 +9,7 @@ import (
 	"strings"
 	"errors"
 
+	"fmt"
 )
 type AccessReq struct {
 	monitorInfo map[string]string `json:"monitorInfo"`
@@ -57,8 +58,26 @@ func CasAccess(w http.ResponseWriter,r *http.Request)  {
 		return
 	}
 
-	err,ret:=GetAnotherData("/cas/casrs/hostpool/all",ip,username,password,port)
-
+	err,_=GetAnotherData("/cas/casrs/hostpool/all",ip,username,password,port)
 	getResponse(w,err)
 }
 
+func GetAnotherData(url string,ip string, username string, password string, port string) (error,[]byte) {
+	//wating test
+	path:=fmt.Sprintf("%s:%s/%s"+ip,port,url)
+	//client := &http.Client{}
+	//resp,err:=client.Get(path)
+	req, err := http.NewRequest("GET",path,nil)
+	req.SetBasicAuth(username,password)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("read response error:%s ",err)
+		return err,nil
+	}
+	bytes,err := ioutil.ReadAll(resp.Body)
+	if err!=nil {
+		log.Printf("read response body error:%s ",err)
+		return err,nil
+	}
+	return nil,bytes
+}

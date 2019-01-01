@@ -50,13 +50,13 @@ func handler(w http.ResponseWriter,r *http.Request)  {
 		return
 	}
 	switch strings.Split(fmt.Sprintf("%s",r.URL),"?")[0] {
-	case "cas":
+	case "/cas":
 		collectorType = collectors.CasCollector{target}
 		break
-	case "cvk":
+	case "/cvk":
 		collectorType = collectors.CvkCollector{target}
 		break
-	case "vm":
+	case "/vm":
 		collectorType = collectors.VmCollector{target}
 		break
 	default:
