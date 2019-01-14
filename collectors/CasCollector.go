@@ -10,18 +10,17 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"os/exec"
+	"strings"
 )
 
 type CasCollector struct {
 	Target string
 }
 var (
-	k8s_cluster_nodes_total     = prometheus.NewDesc("k8s_cluster_nodes_total", "k8s cluster nodes in total", nil, nil)
-	k8s_cluster_cpucores_total = prometheus.NewDesc("k8s_cluster_cpucores_total", "k8s cluster cpucores in total", nil, nil)
-	k8s_cluster_monitorstatus  = prometheus.NewDesc("k8s_cluster_monitorstatus", "k8s cluster node monitor status", nil, nil)
-	k8s_cluster_containers_total = prometheus.NewDesc("k8s_cluster_containers_total", "k8s cluster containers in total", nil, nil)
-	k8s_cluster_memory_total  = prometheus.NewDesc("k8s_cluster_memory_total", "k8s cluster memory in total", nil, nil)
-)
+	cas_monitorstatus = prometheus.NewDesc(prometheus.BuildFQName("cas","","monitorstatus"),
+		"cas monitorstatus",nil,nil)
+	)
 func (c CasCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- prometheus.NewDesc("dummy", "dummy", nil, nil)
 }
@@ -159,6 +158,30 @@ func GetAnotherData(url string,ip string, username string, password string, port
 	}
 	return nil,bytes
 }
+
 func (c CasCollector) Collect(ch chan<- prometheus.Metric) {
+	monitor_info:= config.GetCasMonitorInfo(c.Target)
+	ip:= monitor_info.IP
+	port:= monitor_info.Port
+	username:=monitor_info.Username
+	password := monitor_info.Password
+	if ip =="" || username == "" ||password == "" || port == ""  {
+		ch <- prometheus.MustNewConstMetric(cas_monitorstatus,prometheus.GaugeValue,float64(0))
+		return
+	}
+	command := "ping -i 0.3 -w 5 "+ip+" -c 3 | tail -n 2"
+	cmd := exec.Command("/bin/sh","-c",command)
+	ret,_ := cmd.Output()
+	s := string(ret)
+	if strings.Contains(s,"100% packet loss") {
+		ch <- prometheus.MustNewConstMetric(cas_monitorstatus,prometheus.GaugeValue,float64(0))
+		return
+	}
+	err,_:=GetAnotherData("/cas/casrs/hostpool/all",ip,username,password,port)
+	if err!=nil {
+		ch <- prometheus.MustNewConstMetric(cas_monitorstatus,prometheus.GaugeValue,float64(0))
+		return
+	}
+	ch <- prometheus.MustNewConstMetric(cas_monitorstatus,prometheus.GaugeValue,float64(1))
 
 }

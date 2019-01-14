@@ -30,7 +30,7 @@ func main() {
 	kingpin.Parse()
 	r := mux.NewRouter()
 	r.HandleFunc("/v1/cas/resourceList",handleOther)
-	r.HandleFunc("/api/v1/mysql/access",api.CasAccess).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/cas/access",api.CasAccess).Methods(http.MethodPost)
 	r.HandleFunc("/v1/cas/clusterList",api.GetAllCluster)//没啥用
 
 	r.HandleFunc("/cas",handler)

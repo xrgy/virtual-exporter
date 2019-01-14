@@ -19,6 +19,8 @@ func (c CvkCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 var (
+	cas_cvk_monitorstatus = prometheus.NewDesc(prometheus.BuildFQName("cas","","cvk_monitorstatus"),
+		"cas cvk host monitorstatus",nil,nil)
 	cas_cvk_host_cpu_usage = prometheus.NewDesc(prometheus.BuildFQName("cas", "", "cvk_host_cpu_usage"), "cas cvk host cpu usage",
 		[]string{"cas_cvk_host_id", "cas_cvk_host_status", "cas_cvk_host_ip", "cas_cvk_host_name", "cas_cvk_host_model", "cas_cvk_host_vendor",}, nil)
 
@@ -67,18 +69,23 @@ var (
 )
 
 func (c CvkCollector) Collect(ch chan<- prometheus.Metric) {
-	monitor_info := config.GetMonitorInfo(c.Target)
-	hostPoolId := monitor_info.Params_maps["hostPoolId"]
-	hostId := monitor_info.Params_maps["hostId"]
+	monitor_info := config.GetCvkMonitorInfo(c.Target)
+	hostPoolId := monitor_info.HostpoolId
+	hostId := monitor_info.HostId
 	//clusterId := monitor_info.Params_maps["clusterId"]
-	ip := monitor_info.Params_maps["ip"]
-	port := monitor_info.Params_maps["port"]
-	username := monitor_info.Params_maps["username"]
-	password := monitor_info.Params_maps["password"]
+	ip := monitor_info.IP
+	port := monitor_info.Port
+	username := monitor_info.Username
+	password := monitor_info.Password
+	if ip =="" || username == "" ||password == "" || port == ""  || hostPoolId == "" || hostId == ""{
+		ch <- prometheus.MustNewConstMetric(cas_cvk_monitorstatus,prometheus.GaugeValue,float64(0))
+		return
+	}
 	//获取该主机池的主机列表
 	errs, ret := GetAnotherData(fmt.Sprintf("/cas/casrs/hostpool/host/%s?offset=0&limit=2000", hostPoolId), ip, username, password, port)
 	if errs != nil {
 		log.Printf("get host in hostpool error:%s", errs.Error())
+		ch <- prometheus.MustNewConstMetric(cas_cvk_monitorstatus,prometheus.GaugeValue,float64(0))
 		return
 	}
 	a_hostInfo := &config.HostInfoList{}
@@ -95,6 +102,7 @@ func (c CvkCollector) Collect(ch chan<- prometheus.Metric) {
 	errs = xml.Unmarshal(ret, &hostInfoDetail)
 	if errs != nil {
 		log.Printf("parse host info detail error:%s", errs.Error())
+		ch <- prometheus.MustNewConstMetric(cas_cvk_monitorstatus,prometheus.GaugeValue,float64(0))
 		return
 	}
 	hostStatus := hostInfoDetail.Status
@@ -107,8 +115,10 @@ func (c CvkCollector) Collect(ch chan<- prometheus.Metric) {
 	hostMonitor := &config.HostMonitor{}
 	if errs != nil {
 		log.Printf("error get host %s info :%s", hostId, errs.Error())
+		ch <- prometheus.MustNewConstMetric(cas_cvk_monitorstatus,prometheus.GaugeValue,float64(0))
 		return
 	}
+	ch <- prometheus.MustNewConstMetric(cas_cvk_monitorstatus,prometheus.GaugeValue,float64(1))
 	errs = xml.Unmarshal(ret, &hostMonitor)
 	cpuRate, err := strconv.ParseFloat(hostMonitor.CpuRate, 64)
 	if err != nil {
